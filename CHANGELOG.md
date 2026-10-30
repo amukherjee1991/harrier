@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+- `./setup.sh --import` now imports before Harrier starts. Before, Harrier began recording first and the
+  importer skipped those tables, so most old history was left behind.
+- Screenshots in the README, and `tools/demo_seed.py` to load the same demo data.
+
 ## 1.0.1 (2026-10-30)
 - setup.sh now picks a model that fits your hardware (the template no longer forces an 8 GB model), accepts
   `HARRIER_MODEL=... ./setup.sh --yes`, and checks for curl and a reachable Docker before starting.

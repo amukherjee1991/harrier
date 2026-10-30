@@ -138,6 +138,14 @@ set_env COMPOSE_FILE "$COMPOSE_FILES"
 set_env COMPOSE_PROFILES "$PROFILES"
 
 # --- Start ------------------------------------------------------------------------------------
+# Import before Harrier runs: once it starts recording, the importer would skip those tables.
+if [ -n "$IMPORT" ]; then
+  bold "Importing data from $IMPORT"
+  docker compose build
+  docker compose stop harrier harrier-flows >/dev/null 2>&1 || true
+  docker compose run --rm -v "$(cd "$(dirname "$IMPORT")" && pwd):/old:ro" harrier python tools/migrate_from_sqlite.py "/old/$(basename "$IMPORT")"
+fi
+
 bold "Starting Harrier"
 docker compose up -d --build
 PORT=$(get HARRIER_PORT); PORT=${PORT:-8095}
@@ -153,11 +161,6 @@ if [ "$HAVE" != True ]; then
   else
     warn "Pick or download a model later in Settings."
   fi
-fi
-
-if [ -n "$IMPORT" ]; then
-  bold "Importing data from $IMPORT"
-  docker compose run --rm -v "$(cd "$(dirname "$IMPORT")" && pwd):/old:ro" harrier python tools/migrate_from_sqlite.py "/old/$(basename "$IMPORT")"
 fi
 
 bold "Harrier is running: http://localhost:$PORT"
