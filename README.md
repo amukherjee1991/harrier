@@ -19,6 +19,21 @@ outside for hijacking, defacement and look-alike phishing sites, wherever they'r
 
 Everything runs on your machine: no cloud service, no telemetry.
 
+![Harrier dashboard: open incidents, blocks, hostile activity over 24 hours, domain checks and AI write-ups](docs/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/incident.png" alt="An incident: an AI agent tried to talk Harrier out of blocking it; the AI recommends a permanent block that needs approval"><br><sub><b>An incident.</b> The evidence, the AI's write-up, and a permanent block waiting for a person to approve it.</sub></td>
+    <td width="50%"><img src="docs/screenshots/ai.png" alt="AI decisions: every investigation the AI wrote, newest first"><br><sub><b>AI decisions.</b> Every write-up, what it recommended, and what actually happened.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/devices.png" alt="Home devices: DNS lookups per device from Pi-hole"><br><sub><b>Home devices.</b> Every DNS lookup from every device, through Pi-hole.</sub></td>
+    <td><img src="docs/screenshots/health.png" alt="Health and learning: self-test results and the patterns Harrier has learned"><br><sub><b>Health &amp; learning.</b> Self-tests, and every pattern it has learned and why.</sub></td>
+  </tr>
+</table>
+
+<sub>Screenshots use demo data: documentation-range addresses and <code>example.com</code> domains. Load the same data yourself with <code>tools/demo_seed.py</code> into an empty database.</sub>
+
 ## What it does
 
 - **Detects** probing for secrets and admin panels, exploit strings (Log4Shell, SQL injection,
