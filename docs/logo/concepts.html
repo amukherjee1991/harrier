@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harrier logo concepts</title>
+<style>
+  :root { --bg: #f3f4f5; --card: #fcfcfd; --line: #e2e5e8; --text: #0b0c0d; --muted: #6b7177; --a: #1f5a85; --b: #2d8a99; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111315; --card: #181b1e; --line: #2a2e33; --text: #eef0f2; --muted: #8a9096; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 16px; }
+  @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+  .c { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .c h2 { font-size: 16px; margin: 0; }
+  .c p { color: var(--muted); font-size: 13.5px; margin: 2px 0 16px; }
+  .row { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+  .hero { width: 128px; height: 128px; }
+  .sizes { display: flex; align-items: flex-end; gap: 12px; }
+  .sizes svg:nth-child(1) { width: 64px; height: 64px; } .sizes svg:nth-child(2) { width: 32px; height: 32px; } .sizes svg:nth-child(3) { width: 16px; height: 16px; }
+  .lock { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 14px 16px; border-radius: 12px; }
+  .lock.light { background: #fff; color: #0b0c0d; border: 1px solid #e2e5e8; }
+  .lock.dark { background: #0d0f11; color: #eef0f2; }
+  .lock.hero-bg { background: linear-gradient(135deg, var(--a), var(--b)); color: #fff; }
+  .lock svg { width: 40px; height: 40px; flex: none; }
+  .lock b { font-size: 22px; letter-spacing: -.02em; font-weight: 680; }
+  .lock span { display: block; font-size: 12px; opacity: .75; }
+  .locks { display: grid; gap: 8px; }
+  .tab { display: inline-flex; align-items: center; gap: 6px; background: #dfe3e8; color: #222; border-radius: 8px 8px 0 0; padding: 6px 12px; font-size: 12.5px; margin-top: 12px; }
+  .tab svg { width: 16px; height: 16px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f5a85"/><stop offset="1" stop-color="#2d8a99"/></linearGradient>
+
+    <!-- E. Hunter: a raptor's head built from sharp curves, slanted eye cut into it, hooked beak -->
+    <symbol id="hunter" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="15" fill="url(#g)"/>
+      <path fill="#fff" d="M15 55C14 37 19.5 21 33.5 15.4 41.8 12.1 49.4 14.8 53.6 20.4 57.2 25.2 58.2 31 56.6 36.6 55.3 34.2 53.3 32.6 50.6 32.2 48.4 35.2 45.2 36.9 41.8 37.3 40.8 43.6 41.4 49.6 42.8 55Z"/>
+      <path fill="#1f5a85" d="M34.6 25.6 48.6 22.4C48.3 25 47.4 27 45.8 28.3 42.4 30.6 37.8 29.6 34.6 25.6Z"/>
+      <circle cx="44.2" cy="25.6" r="1.25" fill="#fff"/>
+      <path d="M48.4 21.2C51.4 21.8 53.6 24.4 54.3 27.8" fill="none" stroke="#1f5a85" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+
+    <!-- F. Glide: the harrier from the front, wings raised in its shallow V, as one sharp emblem -->
+    <symbol id="glide2" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="15" fill="url(#g)"/>
+      <path fill="#fff" d="M32 25 36.6 29.6C43.8 26.6 50.8 21.8 58 14.8 56.8 22 52.4 28.6 45.4 33.4L38 37.4 35.4 46.4 32 53 28.6 46.4 26 37.4 18.6 33.4C11.6 28.6 7.2 22 6 14.8 13.2 21.8 20.2 26.6 27.4 29.6Z"/>
+      <circle cx="32" cy="26.4" r="3.4" fill="#fff"/>
+    </symbol>
+
+    <!-- G. Guard: the gliding harrier cut out of a shield -->
+    <symbol id="guard" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="15" fill="url(#g)"/>
+      <path fill="#fff" d="M32 7.5 51.5 14.5V30.5C51.5 43.6 43.4 52.4 32 56.8 20.6 52.4 12.5 43.6 12.5 30.5V14.5Z"/>
+      <g transform="translate(32 33) scale(.56) translate(-32 -33)">
+        <path fill="url(#g)" d="M32 25 36.6 29.6C43.8 26.6 50.8 21.8 58 14.8 56.8 22 52.4 28.6 45.4 33.4L38 37.4 35.4 46.4 32 53 28.6 46.4 26 37.4 18.6 33.4C11.6 28.6 7.2 22 6 14.8 13.2 21.8 20.2 26.6 27.4 29.6Z"/>
+        <circle cx="32" cy="26.4" r="3.4" fill="url(#g)"/>
+      </g>
+    </symbol>
+
+    <!-- H. Sentinel: the gliding harrier over the low horizon it patrols -->
+    <symbol id="sentinel" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="15" fill="url(#g)"/>
+      <g transform="translate(32 28) scale(.82) translate(-32 -30)">
+        <path fill="#fff" d="M32 25 36.6 29.6C43.8 26.6 50.8 21.8 58 14.8 56.8 22 52.4 28.6 45.4 33.4L38 37.4 35.4 46.4 32 53 28.6 46.4 26 37.4 18.6 33.4C11.6 28.6 7.2 22 6 14.8 13.2 21.8 20.2 26.6 27.4 29.6Z"/>
+        <circle cx="32" cy="26.4" r="3.4" fill="#fff"/>
+      </g>
+      <path d="M12 52.5H52" stroke="#fff" stroke-opacity=".55" stroke-width="2.6" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+  <h1>Harrier logo concepts</h1>
+  <p class="lead">Each shown as an app tile, at 64, 32 and 16 px (browser tab size), and as a wordmark on light, dark and the dashboard header.</p>
+  <div class="grid" id="grid"></div>
+</main>
+
+<script>
+  const C = [
+    ["hunter", "E. Hunter", "A raptor's head drawn with sharp curves: hooked beak and a slanted, intent eye cut into it. Reads as \"watching you\"."],
+    ["glide2", "F. Glide", "The harrier head-on with its wings raised in the shallow V it's known for, reduced to one sharp emblem."],
+    ["guard", "G. Guard", "The gliding harrier cut out of a shield: a security tool first, with its own bird."],
+    ["sentinel", "H. Sentinel", "The gliding harrier over the low horizon it patrols."],
+  ];
+  const use = (id, cls = "") => `<svg class="${cls}" viewBox="0 0 64 64" role="img" aria-label="Harrier logo"><use href="#${id}"/></svg>`;
+  document.getElementById("grid").innerHTML = C.map(([id, name, desc]) => `
+    <section class="c"><h2>${name}</h2><p>${desc}</p>
+      <div class="row">${use(id, "hero")}<div class="sizes">${use(id)}${use(id)}${use(id)}</div></div>
+      <div class="tab">${use(id)} Harrier · Incidents</div>
+      <div class="locks">
+        <div class="lock light">${use(id)}<div><b>Harrier</b><span>Intrusion detection with an AI investigator</span></div></div>
+        <div class="lock dark">${use(id)}<div><b>Harrier</b><span>Intrusion detection with an AI investigator</span></div></div>
+        <div class="lock hero-bg">${use(id)}<div><b>Harrier</b><span>Intrusion detection with an AI investigator</span></div></div>
+      </div></section>`).join("");
+</script>
+</body>
+</html>

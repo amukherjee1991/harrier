@@ -1,0 +1,34 @@
+# Development copy, next to a running Harrier: own database, watch-only, reloads on code changes.
+#   docker compose -p harrier-dev -f compose.dev.yml up -d   ->  http://localhost:8096
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: harrier-dev-postgres
+    environment: {POSTGRES_DB: harrier, POSTGRES_USER: harrier, POSTGRES_PASSWORD: dev-only}
+    volumes: ["./data/dev-postgres:/var/lib/postgresql/data"]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U harrier"], interval: 3s, retries: 30}
+
+  web:
+    build: .
+    image: harrier:dev
+    container_name: harrier-dev
+    command: ["python", "dev.py"]
+    env_file: .env.dev
+    environment:
+      DATABASE_URL: postgresql://harrier:dev-only@postgres:5432/harrier
+      MODE: review
+      AI_ENABLED: "false"
+      HARRIER_LOOPS: run,domain,learn
+      HARRIER_DEV: "true"
+    ports: ["8096:8095"]
+    volumes:
+      - ./:/app
+      - /var/log:/logs/host:ro
+      - ${CADDY_LOG_DIR:-./data/no-caddy}:/logs/caddy:ro
+    networks: [default, shared]
+    depends_on: {postgres: {condition: service_healthy}}
+
+networks:
+  shared:
+    name: ${EXTERNAL_NETWORK:?set EXTERNAL_NETWORK in .env.dev}
+    external: true

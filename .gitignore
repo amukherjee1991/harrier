@@ -1,0 +1,10 @@
+# Secrets and local data: never commit
+.env
+.env.*
+!.env.example
+data/
+
+# Python / test output
+__pycache__/
+*.pyc
+tests/report.json

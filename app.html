@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Harrier</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/css/app.css">
+<script type="module" src="/static/js/app.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <mask id="hm" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/>
+      <path d="M34.6 25.6 48.6 22.4C48.3 25 47.4 27 45.8 28.3 42.4 30.6 37.8 29.6 34.6 25.6Z" fill="#000"/>
+      <path d="M48.4 21.2C51.4 21.8 53.6 24.4 54.3 27.8" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/></mask>
+    <symbol id="mark" viewBox="12 10 48 46"><path fill="currentColor" mask="url(#hm)" d="M15 55C14 37 19.5 21 33.5 15.4 41.8 12.1 49.4 14.8 53.6 20.4 57.2 25.2 58.2 31 56.6 36.6 55.3 34.2 53.3 32.6 50.6 32.2 48.4 35.2 45.2 36.9 41.8 37.3 40.8 43.6 41.4 49.6 42.8 55Z"/><circle cx="44.2" cy="25.6" r="1.25" fill="currentColor"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  </defs>
+</svg>
+
+<a class="sr" href="#main">Skip to content</a>
+<header class="bar">
+  <div class="in">
+    <a class="id" href="/" data-link>
+      <span class="tile" aria-hidden="true"><svg><use href="#mark"/></svg></span>
+      <span><span class="name">Harrier</span><span class="host" id="host" style="display:block">&nbsp;</span></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/" data-link data-nav="dashboard">Dashboard</a>
+      <a href="/incidents" data-link data-nav="incidents">Incidents<span class="n" id="nPending" hidden></span></a>
+      <a href="/traffic/web" data-link data-nav="traffic">Traffic</a>
+      <a href="/ai" data-link data-nav="ai">AI decisions</a>
+      <a href="/blocked" data-link data-nav="blocked">Blocked</a>
+      <a href="/health" data-link data-nav="health">Health<span class="n crit" id="nHealth" hidden></span></a>
+      <a href="/settings/account" data-link data-nav="settings">Settings</a>
+    </nav>
+    <div class="state" id="state" aria-live="polite"></div>
+    <div class="user">
+      <button class="btn ghost" id="userBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="userMenu"><span id="userName">…</span><svg aria-hidden="true"><use href="#i-chev"/></svg></button>
+      <div class="menu" id="userMenu" role="menu" data-closed>
+        <div class="who"><b id="menuUser"></b><span class="faint" id="menuRole"></span></div>
+        <a role="menuitem" href="/settings/account" data-link>Your account</a>
+        <a role="menuitem" href="/health" data-link>Health &amp; learning</a>
+        <form method="post" action="/logout"><button role="menuitem" type="submit">Sign out</button></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <div id="notices"></div>
+  <div id="page"></div>
+  <footer id="foot"></footer>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

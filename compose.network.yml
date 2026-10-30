@@ -1,0 +1,10 @@
+# Join an existing Docker network, to share an Ollama (and/or Pi-hole) that already runs in Docker
+# instead of starting another one. setup.sh fills in EXTERNAL_NETWORK when it finds one.
+services:
+  harrier:
+    networks: [default, shared]
+
+networks:
+  shared:
+    name: ${EXTERNAL_NETWORK:?set EXTERNAL_NETWORK in .env}
+    external: true

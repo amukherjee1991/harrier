@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Sign in · Harrier</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/css/app.css">
+<script type="module" src="/static/js/login.js"></script>
+</head>
+<body>
+<main class="signin">
+  <div class="card">
+    <div class="brand">
+      <span class="tile" aria-hidden="true"><svg viewBox="12 10 48 46"><defs><mask id="hm" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="M34.6 25.6 48.6 22.4C48.3 25 47.4 27 45.8 28.3 42.4 30.6 37.8 29.6 34.6 25.6Z" fill="#000"/><path d="M48.4 21.2C51.4 21.8 53.6 24.4 54.3 27.8" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/></mask></defs><path fill="#fff" mask="url(#hm)" d="M15 55C14 37 19.5 21 33.5 15.4 41.8 12.1 49.4 14.8 53.6 20.4 57.2 25.2 58.2 31 56.6 36.6 55.3 34.2 53.3 32.6 50.6 32.2 48.4 35.2 45.2 36.9 41.8 37.3 40.8 43.6 41.4 49.6 42.8 55Z"/><circle cx="44.2" cy="25.6" r="1.25" fill="#fff"/></svg></span>
+      <div><h1>Sign in to Harrier</h1><p>Intrusion detection with an AI investigator</p></div>
+    </div>
+    <div class="notice crit" id="failed" role="alert" hidden>Wrong username or password.</div>
+    <div class="notice crit" id="locked" role="alert" hidden>This account is locked for 15 minutes after too many wrong passwords.</div>
+    <div class="notice crit" id="throttled" role="alert" hidden>Too many failed attempts from your address. Try again in 15 minutes.</div>
+    <div class="notice crit" id="disabled" role="alert" hidden>This account is disabled. Ask an admin.</div>
+    <div class="notice info" id="signed_out" role="status" hidden>You've been signed out.</div>
+    <form method="post" action="/login" id="form">
+      <label class="h" for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+      <label class="h" for="password">Password</label>
+      <div class="pw"><input type="password" id="password" name="password" autocomplete="current-password" required>
+        <button type="button" class="reveal-pw" id="reveal" aria-label="Show password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <label class="remember"><input type="checkbox" name="remember" checked> Keep me signed in for 30 days</label>
+      <button type="submit" class="btn primary" id="submit">Sign in</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>
