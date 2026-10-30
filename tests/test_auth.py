@@ -120,11 +120,19 @@ def test_sign_out_everywhere_and_disabled_accounts():
     assert a2.get("/api/overview").status_code == 401 and a.get("/api/overview").status_code == 200
 
 
-def test_forwarded_for_is_only_trusted_from_a_proxy():
+def test_forwarded_for_is_only_trusted_from_a_named_proxy():
+    """By default nobody may set the client address; only proxies named in TRUSTED_PROXIES can."""
+    import ipaddress
+    import web
     e = Env()
     auth.create_user(e.db, "alice", PW, "admin")
     app = app_for(e)
     c = app.test_client()
+    c.post("/login", data={"username": "alice", "password": "x"}, headers={"X-Forwarded-For": "198.51.100.9"},
+           environ_base={"REMOTE_ADDR": "192.168.1.50"})  # a LAN device forging its address: ignored by default
+    assert e.db.execute("select ip from login_events order by id desc limit 1").fetchone()[0] == "192.168.1.50"
+    web.TRUSTED_PROXIES = [ipaddress.ip_network("172.30.77.3/32")]
+    e.db.execute("delete from login_events")
     c.post("/login", data={"username": "alice", "password": "x"}, headers={"X-Forwarded-For": "1.2.3.4"},
            environ_base={"REMOTE_ADDR": "203.0.113.50"})  # straight from the internet: header ignored
     c.post("/login", data={"username": "alice", "password": "x"}, headers={"X-Forwarded-For": "6.6.6.6, 198.51.100.7"},

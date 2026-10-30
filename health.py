@@ -79,13 +79,13 @@ def live_checks(db):
     if site:
         def flow():
             marker = f"/harrier-selftest-{uuid.uuid4().hex[:10]}"
-            requests.get(f"https://{site}{marker}", headers={"User-Agent": harrier.SELFTEST_UA}, timeout=15)
+            requests.get(f"https://{site}{marker}", headers={"User-Agent": harrier.SELFTEST_UA}, timeout=15, allow_redirects=False)
             seen = wait_for(lambda: db.execute("select count(*) from traffic where path = ?", (marker,)).fetchone()[0] > 0, 45)
             return seen, "request showed up in the traffic log" if seen else "not seen in 45s: is Caddy writing its log?"
         check(f"Web traffic on {site} reaches Harrier", flow)
 
         def notice():
-            r = requests.get(f"https://{site}/.env", headers={"User-Agent": harrier.SELFTEST_UA}, timeout=15)
+            r = requests.get(f"https://{site}/.env", headers={"User-Agent": harrier.SELFTEST_UA}, timeout=15, allow_redirects=False)
             return r.status_code == 403 and "automated agents" in r.text, f"HTTP {r.status_code}"
         check("Attack probes get the 403 notice", notice)
 

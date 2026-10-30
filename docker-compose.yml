@@ -42,7 +42,7 @@ services:
     volumes:
       - ${HOST_LOG_DIR:-/var/log}:/logs/host:ro              # auth.log (SSH), ufw.log (firewall)
       - ${CADDY_LOG_DIR:-./data/no-caddy}:/logs/caddy:ro     # Caddy JSON access log (optional)
-      - ${KESTREL_DATA_DIR:-./data/no-kestrel}:/logs/kestrel # Kestrel's verdicts (optional, opened read-only)
+      - ${KESTREL_DATA_DIR:-./data/no-kestrel}:/logs/kestrel # Kestrel's verdicts (optional). Opened read-only, but SQLite needs its -shm file writable
     depends_on:
       postgres:
         condition: service_healthy

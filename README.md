@@ -38,7 +38,7 @@ Everything runs on your machine: no cloud service, no telemetry.
 - **Learns, carefully.** From your decisions and from confirmed attackers only, never from what
   traffic says. New patterns must come from at least two attackers and never appear in normal
   traffic.
-- **Tests itself:** live checks every 6 hours, a 59-test replay suite nightly, and an AI red team
+- **Tests itself:** live checks every 6 hours, a 74-test replay suite nightly, and an AI red team
   weekly, all shown in the dashboard.
 - **Accounts:** admins and read-only viewers, Argon2 password hashing, revocable sessions,
   lockouts, and full sign-in history.
@@ -87,6 +87,9 @@ Open **http://localhost:8095** and sign in.
 | Connections | Automatic (the `harrier-flows` container) |
 | Your domains | Set `DOMAINS`, and optionally `BRAND_KEYWORD` for look-alike alerts |
 
+If the dashboard sits behind a reverse proxy, set `TRUSTED_PROXIES` to that proxy's exact address. Otherwise leave it
+empty: X-Forwarded-For is ignored, so nobody can claim to be someone else.
+
 Every setting is documented in [`.env.example`](.env.example). Most can be changed later in
 **Settings**.
 
@@ -124,6 +127,8 @@ Home, VPN, private ranges, your public IP and your allowlist can never be blocke
   cookies, account lockout and per-address throttling, a strict Content Security Policy, and
   read-only viewers. Failed sign-ins feed Harrier's own detection.
 - Harrier defends; it never attacks back.
+
+Security: see [SECURITY.md](SECURITY.md) for reporting and the pre-release audit.
 
 ## Testing
 

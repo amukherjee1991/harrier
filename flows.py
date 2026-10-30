@@ -6,6 +6,7 @@ Harrier process (netwatch.read_conns). DNS (port 53) is left out: Pi-hole's own 
 """
 import ipaddress
 import logging
+import os
 import re
 import subprocess
 import time
@@ -16,6 +17,7 @@ log = logging.getLogger("harrier.flows")
 LINE = re.compile(r"^(\w+)\s+\d+\s+(?:\d+\s+)?(?:([A-Z_]+)\s+)?src=(\S+) dst=(\S+) (?:sport=(\d+) dport=(\d+) )?.*?"
                   r"src=(\S+) dst=(\S+)")
 DEDUP_SECONDS = 600
+SSH_PORT = int(os.environ.get("APP_SSH_PORT", "2222"))
 
 
 def local_addresses():
@@ -70,7 +72,8 @@ def main():
                 if not c:
                     continue
                 direction, remote, me, port, proto, state = c
-                key = (direction, remote, me, port, proto)
+                # Each new connection to the watched SSH port counts (password guessing); others are summarised.
+                key = (direction, remote, me, port, proto) + ((cid,) if direction == "in" and port == SSH_PORT else ())
                 if now - recent.get(key, 0) < DEDUP_SECONDS:
                     continue
                 recent[key] = now

@@ -1,3 +1,6 @@
+# If Caddy sits behind another proxy or CDN and you set trusted_proxies, also set trusted_proxies_strict:
+# otherwise a client can choose the address Caddy logs (and Harrier would score and block that address).
+#
 # Snippets for your Caddyfile so Harrier can see web traffic and answer probes.
 # Then set CADDY_LOG_DIR in Harrier's .env to the host folder that holds access.log.
 

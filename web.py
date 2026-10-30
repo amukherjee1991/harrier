@@ -20,9 +20,9 @@ HERE = os.path.dirname(__file__)
 COOKIE = "harrier_session"
 OPEN_PATHS = {"/login", "/logout", "/healthz"}
 SELF_SERVICE = ("/api/me",)  # what viewers may change: their own password, colours and sessions
-# Requests through a reverse proxy on these networks carry the real client in X-Forwarded-For.
-TRUSTED_PROXIES = [ipaddress.ip_network(n.strip()) for n in
-                   os.environ.get("TRUSTED_PROXIES", "127.0.0.0/8,172.16.0.0/12,10.0.0.0/8,192.168.0.0/16").split(",") if n.strip()]
+# Only the exact address(es) of your own reverse proxy may tell us the real client (X-Forwarded-For).
+# Empty by default: any device that can reach the port could otherwise claim to be any address.
+TRUSTED_PROXIES = [ipaddress.ip_network(n.strip()) for n in os.environ.get("TRUSTED_PROXIES", "").split(",") if n.strip()]
 SECURE_COOKIE = os.environ.get("SECURE_COOKIE", "false").lower() in ("1", "true", "yes")
 
 app = Flask(__name__, static_folder=None)
@@ -77,6 +77,9 @@ def require_login():
             return jsonify({"error": "login required"}), 401
         return redirect("/login")
     g.user, g.session = user, h
+    if request.method not in ("GET", "HEAD") and user["must_change_password"] and request.path.startswith("/api/") \
+            and not request.path.startswith(SELF_SERVICE):
+        return jsonify({"error": "Choose your own password first (Settings, Your account)."}), 403
     if request.method not in ("GET", "HEAD") and user["role"] != "admin" and not request.path.startswith(SELF_SERVICE):
         return jsonify({"error": "Viewers can look but not change anything. Ask an admin."}), 403
     if request.method not in ("GET", "HEAD") and request.path.startswith("/api/") and not request.is_json:
@@ -120,8 +123,7 @@ def login():
         user = auth.authenticate(db(), request.form.get("username", ""), request.form.get("password", ""), ip, ua,
                                  on_failure=failed_signin)
     except auth.AuthError as e:
-        time.sleep(0.5)
-        msg = str(e)
+        msg = str(e)  # no sleep here: Argon2 already makes guessing slow, and a sleep would tie up a worker
         code = "locked" if "locked" in msg else "throttled" if "Too many" in msg else "disabled" if "disabled" in msg else "failed"
         return redirect(f"/login?{code}=1")
     remember = request.form.get("remember") == "on"
@@ -144,7 +146,10 @@ def logout():
 
 @app.get("/static/<path:name>")
 def static_file(name):
-    return send_from_directory(os.path.join(HERE, "static"), name, max_age=86400)
+    # Revalidate every time (cheap 304s via ETag/Last-Modified), so an upgrade never runs stale scripts.
+    resp = send_from_directory(os.path.join(HERE, "static"), name, max_age=0)
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 # Every page of the app is a real URL. They all load the same shell; the page module comes from the path.
@@ -307,6 +312,7 @@ _pull_lock = threading.Lock()
 
 @app.get("/api/models")
 def models():
+    admin_only()
     d = db()
     installed, error = [], ""
     try:
@@ -464,9 +470,10 @@ def act(inc_id):
         # Unblock and allowlist: only you can do this, never the AI.
         for ip in ips:
             harrier.unblock(d, ip, actor=g.user["username"])
-        s = harrier.get_settings(d)
-        new = {str(ipaddress.ip_network(ip, strict=False)) for ip in ips if not harrier.is_private(ip)}
-        harrier.save_settings(d, {"allowlist": sorted(set(s["allowlist"]) | new)})
+        if inc["kind"] == "ip":  # a coordinated attack's other members may be real attackers: unblock, don't allowlist
+            s = harrier.get_settings(d)
+            new = {str(ipaddress.ip_network(ip, strict=False)) for ip in ips if not harrier.is_private(ip)}
+            harrier.save_settings(d, {"allowlist": sorted(set(s["allowlist"]) | new)}, actor=g.user["username"])
         d.execute("update incidents set status = 'false_positive', pending_action = null where id = ?", (inc_id,))
     elif action == "reinvestigate":
         d.execute("update incidents set ai_at = 0 where id = ?", (inc_id,))
@@ -510,6 +517,7 @@ def remove_block(ip):
 
 @app.get("/api/activity")
 def activity():
+    admin_only()
     return jsonify([dict(r) for r in db().execute("select * from actions order by id desc limit 200")])
 
 
@@ -517,8 +525,10 @@ def activity():
 def settings():
     d = db()
     if request.method == "GET":
-        return jsonify({**harrier.get_settings(d), "own_ip": harrier.get_state(d, "own_ip"),
-                        "hard_allow": [str(n) for n in harrier.HARD_ALLOW]})
+        s = {**harrier.get_settings(d), "own_ip": harrier.get_state(d, "own_ip"), "hard_allow": [str(n) for n in harrier.HARD_ALLOW]}
+        if g.user["role"] != "admin":  # the alert URL is a credential; viewers get the rest read-only
+            s["notify_url"] = "set" if s.get("notify_url") else ""
+        return jsonify(s)
     body = request.get_json(force=True)
     changes = {}
     if body.get("mode") in ("auto", "review"):

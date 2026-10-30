@@ -81,8 +81,8 @@ INJECTION = re.compile(r"(?i)(ignore\s+(all\s+|any\s+)?(the\s+)?(previous|prior|
                        r"(please\s+)?(don'?t|do\s+not)\s+(block|ban|report|flag)\s+(me|this|us|it)|"
                        r"\b(hi|hello|dear|attention)\s+(harrier|ai|assistant|security\s+(bot|system|ai|team))|"
                        # the same in other languages
-                       r"ignor\w*\s+(\S+\s+){0,3}(instructions?|instrucciones|anweisungen|istruzioni|instru\w*es)|"
-                       r"(ne\s+bloquez\s+pas|no\s+bloquees|no\s+bloquear|nicht\s+blockieren|blockiere\s+(\S+\s+){0,3}nicht|n[aã]o\s+bloqueie)|"
+                       r"ignor\w{0,12}\s+(\S{1,40}\s+){0,3}(instructions?|instrucciones|anweisungen|istruzioni|instru\w{0,4}es)|"
+                       r"(ne\s+bloquez\s+pas|no\s+bloquees|no\s+bloquear|nicht\s+blockieren|blockiere\s+(\S{1,40}\s+){0,3}nicht|n[aã]o\s+bloqueie)|"
                        r"忽略.{0,10}(指令|说明)|不要(阻止|屏蔽|拦截)|игнорируй|無視して|"
                        # impersonating the owner, dictating the verdict, or breaking out of the evidence
                        r"(i\s+am|i'm|this\s+is)\s+(the\s+)?(site\s+)?(owner|admin(istrator)?)|message\s+from\s+.{0,40}(owner|admin)|"
@@ -109,6 +109,11 @@ STATIC = re.compile(r"(?i)(^/(assets|avatars|repo-avatars|static|img|images|css|
                     r"robots\.txt|/\.well-known/(security|change-password)|\.(png|jpe?g|gif|svg|ico|webp|css|js|map|woff2?)$)")
 B64 = re.compile(r"[A-Za-z0-9+/_-]{24,}={0,2}")
 LOGIN_PATHS = ("/user/login", "/login", "/api/v1/users/login")
+MAX_URI, MAX_HEADER, MAX_SCAN = 2000, 1000, 6000
+# Kinds that, on their own, never justify blocking an address: the visitor can be made to produce them
+# (forced requests, a mistyped password) or they are only priors learned from other addresses.
+NOT_BLOCKABLE_ALONE = {"manipulation", "login_fail", "learned_pattern", "hostile_network", "ssh_fail", "malicious_domain",
+                       "new_device", "beacon", "dns_spike"}
 SELFTEST_UA = "harrier-selftest"
 SELF_IP = [None]  # your public IP, refreshed hourly; health checks may reach the site through it
 SCANNER_UA = re.compile(r"(?i)(zgrab|masscan|nmap|nuclei|sqlmap|nikto|gobuster|ffuf|dirbuster|feroxbuster|"
@@ -117,8 +122,9 @@ AGENT_UA = re.compile(r"(?i)(python-requests|python-urllib|aiohttp|httpx|go-http
                       r"scrapy|headlesschrome|playwright|puppeteer|selenium|phantomjs|node-fetch|axios/|"
                       r"langchain|llama_?index|autogpt|browser-use|crewai|gptbot|chatgpt-user|oai-searchbot|"
                       r"claudebot|claude-user|anthropic|perplexity|bytespider|ccbot|amazonbot|meta-externalagent)")
-SSH_FAIL = re.compile(r"sshd\[\d+\]: (?:Failed \S+ for (?:invalid user )?(\S+)|Invalid user (\S*)) from ([0-9a-fA-F:.]+)")
-SSH_OK = re.compile(r"sshd\[\d+\]: Accepted (\S+) for (\S+) from ([0-9a-fA-F:.]+)")
+# The client address is the LAST "from <ip> port <n>": usernames are attacker-chosen and may contain " from <ip>".
+SSH_FAIL = re.compile(r"sshd\[\d+\]: (?:Failed \S+ for (?:invalid user )?(.*)|Invalid user (.*)) from ([0-9a-fA-F:.]+) port \d+")
+SSH_OK = re.compile(r"sshd\[\d+\]: Accepted (\S+) for (.*) from ([0-9a-fA-F:.]+) port \d+")
 UFW = re.compile(r"\[UFW BLOCK\] IN=(\S+) .*?SRC=([0-9a-fA-F:.]+) DST=(\S+) .*?PROTO=(\S+)(?: SPT=\d+ DPT=(\d+))?(.*)")
 
 log = logging.getLogger("harrier")
@@ -157,7 +163,8 @@ def get_settings(db):
 def save_settings(db, changes, actor="you"):
     s = {**get_state(db, "settings", {}), **changes}
     set_state(db, "settings", s)
-    record(db, actor, "settings", "", json.dumps(changes))
+    logged = {k: ("(changed)" if k == "notify_url" and v else v) for k, v in changes.items()}  # the alert URL is a credential
+    record(db, actor, "settings", "", json.dumps(logged))
     return get_settings(db)
 
 
@@ -251,8 +258,24 @@ class Counter:
         return 0
 
 
+class Once:
+    """Remembers keys seen in the last `window` seconds; add() returns 1 the first time, 0 after."""
+
+    def __init__(self, window):
+        self.window, self.seen = window, {}
+
+    def add(self, key, at):
+        if len(self.seen) > 100_000:  # keep memory bounded under address rotation
+            self.seen = {k: v for k, v in self.seen.items() if v > at - self.window}
+        if self.seen.get(key, 0) > at - self.window:
+            return 0
+        self.seen[key] = at
+        return 1
+
+
 def reset_counters():
-    global errors_4xx, logins, ssh_fails, port_scans
+    global errors_4xx, logins, ssh_fails, port_scans, once
+    once = Once(1800)
     errors_4xx = Counter(300, 30)
     logins = Counter(600, 8)
     ssh_fails = Counter(600, 5)
@@ -313,34 +336,45 @@ def caddy_line(line, out, seen):
     if not isinstance(r, dict):
         return
     ip = r.get("client_ip") or r.get("remote_ip") or ""
-    at, host, method = e.get("ts", time.time()), r.get("host", ""), r.get("method", "")
-    uri = r.get("uri", "")
-    headers = r.get("headers", {})
-    ua = (headers.get("User-Agent") or [""])[0]
-    ref = (headers.get("Referer") or [""])[0]
+    at, host, method = e.get("ts", time.time()), str(r.get("host", "")), str(r.get("method", ""))
+    uri = str(r.get("uri", ""))
+    headers = r.get("headers") if isinstance(r.get("headers"), dict) else {}
+    hdr = lambda k: str((headers.get(k) or [""])[0])  # noqa: E731
+    ua, ref = hdr("User-Agent"), hdr("Referer")
     path = uri.split("?", 1)[0]
-    raw = f"{uri} {unquote(unquote(uri))}"
-    desc = f"{method} {host}{uri} -> {e.get('status')} UA={ua!r}"
-    status = e.get("status", 0)
+    # Patterns only ever see a bounded amount of attacker text, so one huge request can't stall the detector.
+    raw = f"{uri[:MAX_URI]} {unquote(unquote(uri[:MAX_URI]))}"
+    desc = f"{method} {host}{uri[:500]} -> {e.get('status')} UA={ua[:200]!r}"
+    try:
+        status = int(e.get("status") or 0)
+    except (TypeError, ValueError):
+        status = 0
+    # A browser told to load our URL by some other site (an <img>, a link) sends this; the visitor didn't choose
+    # the URL or Referer, so its content must not count against them.
+    forced = hdr("Sec-Fetch-Site") == "cross-site" and hdr("Sec-Fetch-Mode") in ("no-cors", "navigate")
     seen.append((at, ip, host[:200], method[:10], uri[:500], status, ua[:300]))
     if ua == SELFTEST_UA and (is_private(ip) or ip == SELF_IP[0]):
         return  # tests/selftest.sh from inside the network; outsiders can't use this
-    text = f"{raw} {ua} {ref} {unquote(ref)}"
+    text = f"{raw} {ua[:MAX_HEADER]} {ref[:MAX_HEADER]} {unquote(ref[:MAX_HEADER])}"[:MAX_SCAN]
+    if forced:
+        desc = f"[cross-site browser request, not counted against the visitor] {desc}"
+    content = []
     if INJECTION.search(f"{text} {decoded_text(text)}"):
-        out.append(sig(at, "web", ip, "manipulation", 8, desc, ua, host, "manipulation"))
+        content.append(("manipulation", 8, "manipulation"))
     if EXPLOIT.search(raw):
-        out.append(sig(at, "web", ip, "exploit", 6, desc, ua, host,
-                       f"exploit:{family(raw, EXPLOIT_FAMILIES) or 'other'}"))
+        content.append(("exploit", 6, f"exploit:{family(raw, EXPLOIT_FAMILIES) or 'other'}"))
     elif PROBE.search(path):
-        out.append(sig(at, "web", ip, "probe", 3, desc, ua, host, f"probe:{family(path, PROBE_FAMILIES) or 'other'}"))
+        content.append(("probe", 3, f"probe:{family(path, PROBE_FAMILIES) or 'other'}"))
+    for kind, score, fp in content:
+        out.append(sig(at, "web", ip, kind, 1 if forced else score, desc, ua, host, None if forced else fp))
     if SCANNER_UA.search(ua):
         out.append(sig(at, "web", ip, "scanner", 4, desc, ua, host, f"ua:{ua.split('/')[0][:40].lower()}"))
-    if path in INTEL["path"]:
-        out.append(sig(at, "web", ip, "learned_pattern", 3, f"Path used by earlier attackers: {desc}", ua, host, f"learned:{path[:60]}"))
-    if ua.strip() in INTEL["ua"]:
-        out.append(sig(at, "web", ip, "learned_pattern", 3, f"Tool used by earlier attackers: {desc}", ua, host, "learned:ua"))
+    # Learned intel counts once per address per half hour: a prior, never enough to block a visitor by itself.
+    if (path in INTEL["path"] or ua.strip() in INTEL["ua"]) and once.add((ip, "learned"), at) == 1:
+        out.append(sig(at, "web", ip, "learned_pattern", 3, f"Matches a pattern used by earlier attackers: {desc}", ua, host,
+                       f"learned:{path[:60]}" if path in INTEL["path"] else "learned:ua"))
     a = parse_ip(ip)
-    if a and any(a in n for n in INTEL["network"] if n.version == a.version):
+    if a and any(a in n for n in INTEL["network"] if n.version == a.version) and once.add((ip, "network"), at) == 1:
         out.append(sig(at, "web", ip, "hostile_network", 2, f"From a network that keeps attacking: {desc}", ua, host))
     if 400 <= status < 500 and not STATIC.search(path) and (n := errors_4xx.add(ip, at)):
         out.append(sig(at, "web", ip, "error_burst", 5, f"{n} failed requests in 5 min, latest: {desc}", ua, host))
@@ -504,7 +538,8 @@ def correlate(db, new):
         inc_id, created, raised = upsert_incident(db, f"ip:{ip}", "device" if local else "ip", title, sev, score,
                                                   max(r["at"] for r in rows), ip=ip, ips=[ip], n=n_new)
         blocked = False
-        if sev in ("high", "critical") and settings["mode"] == "auto" and not is_protected(ip, nets):
+        if sev in ("high", "critical") and settings["mode"] == "auto" and not is_protected(ip, nets) \
+                and corroborated(db, ip, now - 1800):
             blocked = block(db, ip, title, inc_id, "rule")
             if blocked:
                 db.execute("update incidents set status = 'blocked' where id = ?", (inc_id,))
@@ -522,13 +557,31 @@ def correlate(db, new):
         title = f"Coordinated attack: {len(ips)} addresses, {describe(kinds)} ({target})"
         inc_id, created, _ = upsert_incident(db, f"campaign:{r['fp']}", "campaign", title, "high", 10 * len(ips),
                                              r["last"], ips=ips)
+        hit = 0
         if settings["mode"] == "auto":
             for ip in ips:
-                block(db, ip, title, inc_id, "rule")
-            db.execute("update incidents set status = 'blocked' where id = ?", (inc_id,))
-            db.commit()
+                # Only members with their own hostile evidence, and never someone a person just unblocked.
+                if corroborated(db, ip, now - 1800, campaign=True) and not owner_unblocked(db, ip, now - 86400):
+                    hit += block(db, ip, title, inc_id, "rule") or 0
+            if hit:
+                db.execute("update incidents set status = 'blocked' where id = ?", (inc_id,))
+                db.commit()
         if created:
-            notify(db, title, "Every address in it is blocked." if settings["mode"] == "auto" else "Open Harrier to review.")
+            notify(db, title, "Members with their own hostile activity are blocked." if hit else "Open Harrier to review.")
+
+
+def corroborated(db, ip, since, campaign=False):
+    """Does this address have hostile activity of its own, beyond things it can be framed for?"""
+    rows = db.execute("select kind, fp from signals where ip = ? and at > ? and score > 1", (ip, since)).fetchall()
+    kinds = {r["kind"] for r in rows}
+    if campaign:  # a campaign member needs an unambiguous attack signal, not just a .php request
+        return any(r["kind"] not in NOT_BLOCKABLE_ALONE and r["fp"] != "probe:other" for r in rows)
+    return bool(kinds - NOT_BLOCKABLE_ALONE) or "ssh_login_after_failures" in kinds
+
+
+def owner_unblocked(db, ip, since):
+    return db.execute("select 1 from actions where action = 'unblock' and target = ? and at > ? "
+                      "and actor not in ('harrier', 'harrier-ai', 'health', 'test') limit 1", (ip, since)).fetchone() is not None
 
 
 def expire_blocks(db):
@@ -603,12 +656,12 @@ def evidence_for(db, inc):
     prior = db.execute("select count(*) from incidents where ip = ? and id != ?", (inc["ip"], inc["id"])).fetchone()[0] \
         if inc["ip"] else 0
     return {
-        "incident": {"kind": inc["kind"], "title": inc["title"], "rule_severity": inc["severity"],
+        "incident": {"kind": inc["kind"], "title": clean(inc["title"], 300), "rule_severity": inc["severity"],
                      "first_seen": time.strftime("%Y-%m-%d %H:%M", time.localtime(inc["first_at"])),
                      "last_seen": time.strftime("%Y-%m-%d %H:%M", time.localtime(inc["last_at"])),
                      "addresses": ips[:50], "address_count": len(ips),
                      "home_or_vpn_device": bool(inc["ip"]) and is_private(inc["ip"]),
-                     "earlier_incidents_from_this_address": prior, "notes": inc["notes"]},
+                     "earlier_incidents_from_this_address": prior, "notes": clean(inc["notes"], 500)},
         "signals": [{"time": time.strftime("%H:%M:%S", time.localtime(s["at"])), "source": s["source"],
                      "address": s["ip"], "kind": s["kind"], "detail": clean(s["detail"])} for s in sigs],
         "all_activity": activity_for(db, ips[:20], inc["first_at"] - 3600),
@@ -717,17 +770,20 @@ def apply_verdict(db, inc, v):
     ips = [ip for ip in (json.loads(inc["ips"] or "[]") or [inc["ip"]]) if ip and not is_private(ip)]
     seconds = {"block_24h": 86400, "block_7d": 7 * 86400, "block_30d": 30 * 86400}.get(action)
     if inc["kind"] in ("ip", "campaign") and ips and action.startswith("block"):
-        if action == "block_permanent" or settings["mode"] != "auto":
-            pending = action  # needs you
-        else:
-            for ip in ips:
-                block(db, ip, f"AI: {v['attack_type']}", inc["id"], "ai", seconds, actor="harrier-ai")
+        since = inc["first_at"] - 600
+        backed = [ip for ip in ips if corroborated(db, ip, since, campaign=inc["kind"] == "campaign")]
+        if action == "block_permanent" or settings["mode"] != "auto" or len(backed) < len(ips):
+            pending = action  # needs a person: permanent, review mode, or evidence the address could be framed for
+        if action != "block_permanent" and settings["mode"] == "auto" and backed:
+            for ip in backed:
+                block(db, ip, f"AI: {str(v.get('attack_type'))[:80]}", inc["id"], "ai", seconds, actor="harrier-ai")
             db.execute("update incidents set status = 'blocked' where id = ?", (inc["id"],))
-    db.execute("update incidents set ai = ?, ai_at = ?, severity = ?, pending_action = coalesce(?, pending_action) "
-               "where id = ?", (json.dumps(v), time.time(), sev, pending, inc["id"]))
+    # The pending suggestion always reflects the latest verdict, so approval matches what's shown.
+    db.execute("update incidents set ai = ?, ai_at = ?, severity = ?, pending_action = ? where id = ?",
+               (json.dumps(v), time.time(), sev, pending, inc["id"]))
     db.commit()
     if v.get("manipulation_attempt") or v.get("ai_agent_suspected"):
-        notify(db, f"AI-driven attack suspected: {inc['title']}", v.get("summary", ""))
+        notify(db, f"AI-driven attack suspected: {inc['title']}", str(v.get("summary") or ""))
 
 
 def ai_loop(stop):
@@ -744,6 +800,8 @@ def ai_loop(stop):
                 if inc:
                     log.info("investigating #%s %s", inc["id"], inc["title"])
                     set_state(db, "ai_busy", inc["id"])
+                    # Mark it first, so an incident that keeps failing can't starve the rest of the queue.
+                    db.execute("update incidents set ai_at = ? where id = ?", (time.time(), inc["id"]))
                     apply_verdict(db, inc, investigate(db, inc))
                     set_state(db, "ai_busy", None)
                     set_state(db, "ai_error", "")
@@ -782,7 +840,10 @@ def tls_info(name):
 
 
 def http_info(name):
-    r = requests.get(f"https://{name}", timeout=15, headers={"User-Agent": "Harrier domain watch"})
+    # Never follow redirects: whoever controls the site could point us at something inside the network.
+    r = requests.get(f"https://{name}", timeout=15, allow_redirects=False, headers={"User-Agent": "Harrier domain watch"})
+    if r.is_redirect:
+        return {"status": r.status_code, "final_url": str(r.headers.get("Location", ""))[:300], "title": ""}
     m = re.search(r"(?is)<title[^>]*>(.*?)</title>", r.text)
     return {"status": r.status_code, "final_url": r.url, "title": re.sub(r"\s+", " ", m.group(1)).strip()[:200] if m else ""}
 
@@ -895,8 +956,11 @@ def domain_loop(stop):
                 set_state(db, "lookalikes_at", now - 5 * 3600)  # retry in an hour
         if now - (get_state(db, "own_ip_at", 0)) > 3600:
             try:
-                set_state(db, "own_ip", requests.get("https://api.ipify.org", timeout=10).text.strip())
-                SELF_IP[0] = get_state(db, "own_ip")
+                r = requests.get("https://api.ipify.org", timeout=10)
+                a = parse_ip(r.text.strip()) if r.ok else None
+                if a and not a.is_private and not a.is_unspecified and not is_private(str(a)):
+                    set_state(db, "own_ip", str(a))  # one public address, never a range
+                    SELF_IP[0] = str(a)
                 set_state(db, "own_ip_at", now)
             except requests.RequestException:
                 pass
@@ -910,7 +974,8 @@ def notify(db, title, message):
         return
     try:
         requests.post(url, data=message.encode()[:3000], timeout=10,
-                      headers={"Title": title.encode("ascii", "replace")[:200].decode(), "Tags": "rotating_light"})
+                      headers={"Title": re.sub(r"[\x00-\x1f\x7f]", " ", title).encode("ascii", "replace")[:200].decode(),
+                               "Tags": "rotating_light"})
     except requests.RequestException as e:
         log.warning("notify failed: %s", e)
 

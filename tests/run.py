@@ -17,7 +17,7 @@ os.environ.setdefault("DASHBOARD_PASSWORD", "pw")
 
 def main():
     args = sys.argv[1:]
-    modules = ["test_detection", "test_safety", "test_learning", "test_network", "test_auth", "test_plumbing"] + (["test_ai"] if "--ai" in args else [])
+    modules = ["test_detection", "test_safety", "test_learning", "test_network", "test_auth", "test_audit", "test_plumbing"] + (["test_ai"] if "--ai" in args else [])
     filt = next((a for a in args if not a.startswith("--")), "")
     results, t0 = [], time.time()
     for name in modules:

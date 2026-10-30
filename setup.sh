@@ -29,12 +29,14 @@ ask() {  # ask "Question" default -> echoes answer
   if [ "$YES" = 1 ] || [ ! -t 0 ]; then echo "$2"; return; fi
   read -r -p "  $1 [$2] " a; echo "${a:-$2}"
 }
-get() { sed -n "s/^$1=//p" .env | tail -1; }
+# A value from .env: last assignment wins, surrounding spaces and any trailing "# comment" are ignored.
+get() { sed -n "s/^$1=//p" .env | tail -1 | sed -e 's/[[:space:]]#.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
 set_env() {  # set_env KEY VALUE: replace or append, keeping the file private
   if grep -q "^$1=" .env; then
-    python3 - "$1" "$2" <<'PY'
-import sys, re
-k, v = sys.argv[1], sys.argv[2]
+    # Values travel in the environment, not argv: other local users can read process arguments.
+    SET_K="$1" SET_V="$2" python3 - <<'PY'
+import os, re
+k, v = os.environ["SET_K"], os.environ["SET_V"]
 s = open(".env").read()
 s = re.sub(rf"^{re.escape(k)}=.*$", lambda m: f"{k}={v}", s, count=1, flags=re.M)
 open(".env", "w").write(s)
@@ -114,6 +116,20 @@ PIHOLE_CONTAINER=$(docker ps --format '{{.Names}} {{.Image}}' | awk '$2 ~ /^piho
 if [ -n "$PIHOLE_CONTAINER" ] && [ -z "$(get PIHOLE_PASSWORD)" ]; then
   info "Found Pi-hole ('$PIHOLE_CONTAINER'). Add its admin password as PIHOLE_PASSWORD in .env to watch every device's DNS."
   set_env PIHOLE_URL "http://$PIHOLE_CONTAINER"
+fi
+
+# --- Home IPv6 -----------------------------------------------------------------------------------
+# Private IPv4 ranges are always protected, but home devices may also use global IPv6 addresses from your ISP.
+# Add this machine's global /64 prefixes to the never-block list so they're protected too.
+V6=$(ip -6 -o addr show scope global 2>/dev/null | awk '{print $4}' | python3 -c "
+import sys, ipaddress
+nets = sorted({str(ipaddress.ip_interface(l.strip()).network.supernet(new_prefix=64)) for l in sys.stdin if l.strip()
+               if not ipaddress.ip_interface(l.strip()).ip.is_private})
+print(','.join(nets))" 2>/dev/null || true)
+if [ -n "$V6" ]; then
+  CUR_ALLOW=$(get ALLOW)
+  NEW_ALLOW=$(printf '%s,%s' "$CUR_ALLOW" "$V6" | tr ',' '\n' | grep -v '^$' | sort -u | paste -sd, -)
+  set_env ALLOW "$NEW_ALLOW"; info "Protected your home IPv6 prefix(es): $V6"
 fi
 
 set_env COMPOSE_FILE "$COMPOSE_FILES"

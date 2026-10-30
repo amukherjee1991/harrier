@@ -71,11 +71,9 @@ def confirmed_attackers(db, since):
     return {r[0] for r in rows if r[0] not in fp and "/" not in r[0]}
 
 
-def benign_ips(db, since):
-    """Addresses that sent traffic but never tripped a single rule."""
-    return {r[0] for r in db.execute(
-        "select distinct ip from traffic where at > ? and ip not in (select distinct ip from signals where score > 0)",
-        (since,))}
+def benign_ips(db, since, attackers):
+    """Everyone who sent traffic except confirmed attackers. A real user with one mistyped password is still normal."""
+    return {r[0] for r in db.execute("select distinct ip from traffic where at > ?", (since,))} - set(attackers)
 
 
 def candidates(db, attackers, since):
@@ -96,15 +94,18 @@ def candidates(db, attackers, since):
 def learn_patterns(db):
     since = time.time() - BASELINE_DAYS * 86400
     attackers = confirmed_attackers(db, since)
-    benign = benign_ips(db, since)
     if not attackers:
         return 0
+    benign = benign_ips(db, since, attackers)
     benign_paths, benign_uas = set(), set()
     if benign:
         marks = ",".join("?" * len(benign))
         for r in db.execute(f"select path, ua from traffic where ip in ({marks}) and at > ?", list(benign) + [since]):
             benign_paths.add(r["path"].split("?", 1)[0])
             benign_uas.add((r["ua"] or "").strip())
+    # A page that ever served anyone normally (2xx/3xx) is a real page, whoever else poked at it.
+    for r in db.execute("select distinct path from traffic where source = 'web' and status < 400 and at > ?", (since,)):
+        benign_paths.add(r["path"].split("?", 1)[0])
     existing = {(r["kind"], r["value"]) for r in db.execute("select kind, value from intel")}
     new = 0
     for kind, items in candidates(db, attackers, since).items():

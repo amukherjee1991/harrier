@@ -72,7 +72,7 @@ function verdict(r) {
 
 function row(r, fresh) {
   let who = `<span class="mono">${esc(r.ip)}</span>`, what = "", status = "";
-  if (r.source === "web") { what = `<span class="mono">${esc(r.method)} ${esc(r.host)}${esc(r.path)}</span>`; status = r.status; }
+  if (r.source === "web") { what = `<span class="mono">${esc(r.method)} ${esc(r.host)}${esc(r.path)}</span>`; status = esc(r.status); }
   if (r.source === "dns") { who = esc(r.host || r.ip); what = `<span class="mono">${esc(r.path)}</span> <span class="faint">${esc(r.method)}</span>`; status = esc(r.ua || ""); }
   if (r.source === "conn") {
     const [dir, proto] = (r.method || ":").split(":"), port = (r.path || "").split(":").pop();
