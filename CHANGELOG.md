@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 (2026-10-30)
+- setup.sh now picks a model that fits your hardware (the template no longer forces an 8 GB model), accepts
+  `HARRIER_MODEL=... ./setup.sh --yes`, and checks for curl and a reachable Docker before starting.
+- New `tests/install_test.sh`: an end-to-end install test on a throwaway Docker-in-Docker machine, covering a fresh
+  machine and one with an Ollama already running. It checks sign-in, containers, a real firewall block, the model,
+  re-running setup and a restart (32 checks).
+
 ## 1.0.0 (2026-10-30)
 First public release.
 - Detection across web (Caddy), SSH, firewall, home-device DNS (Pi-hole) and host/container connections, with

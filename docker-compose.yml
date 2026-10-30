@@ -28,7 +28,7 @@ services:
 
   harrier:
     build: .
-    image: harrier:${HARRIER_VERSION:-1.0.0}
+    image: harrier:${HARRIER_VERSION:-1.0.1}
     container_name: harrier
     restart: unless-stopped
     env_file: .env
@@ -49,7 +49,7 @@ services:
 
   # Applies blocks to the host firewall. Separate on purpose: no AI, no web, no attacker text here.
   guard:
-    image: harrier:${HARRIER_VERSION:-1.0.0}
+    image: harrier:${HARRIER_VERSION:-1.0.1}
     container_name: harrier-guard
     restart: unless-stopped
     command: ["python", "guard.py"]
@@ -64,7 +64,7 @@ services:
 
   # Records connections in and out of this machine (host, containers, VPN) from conntrack.
   flows:
-    image: harrier:${HARRIER_VERSION:-1.0.0}
+    image: harrier:${HARRIER_VERSION:-1.0.1}
     container_name: harrier-flows
     restart: unless-stopped
     command: ["python", "flows.py"]

@@ -53,6 +53,8 @@ bold "Harrier setup"
 command -v docker >/dev/null || { echo "Docker is required: https://docs.docker.com/engine/install/"; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "Docker Compose v2 is required (the 'docker compose' plugin)."; exit 1; }
 command -v python3 >/dev/null || { echo "python3 is required (only for this setup script)."; exit 1; }
+command -v curl >/dev/null || { echo "curl is required."; exit 1; }
+docker info >/dev/null 2>&1 || { echo "Can't talk to Docker. Is it running, and are you in the 'docker' group (or using sudo)?"; exit 1; }
 [ "$(uname -s)" = Linux ] || warn "Blocking needs Linux (nftables). On other systems Harrier can watch but not block."
 
 # --- .env -----------------------------------------------------------------------------------
@@ -107,7 +109,7 @@ RAM=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo 2>/dev/null || 
 if [ "${VRAM:-0}" -ge 10000 ]; then SUGGEST=gemma4:12b
 elif [ "${VRAM:-0}" -ge 6000 ] || [ "$RAM" -ge 16 ]; then SUGGEST=qwen2.5:7b
 else SUGGEST=gemma3:4b; fi
-CUR=$(get MODEL); [ -n "$CUR" ] || CUR=$SUGGEST
+CUR=${HARRIER_MODEL:-$(get MODEL)}; [ -n "$CUR" ] || CUR=$SUGGEST  # HARRIER_MODEL=... ./setup.sh --yes to choose
 info "GPU memory: ${VRAM:-0} MB, RAM: ${RAM} GB -> suggested model: $SUGGEST"
 set_env MODEL "$(ask 'AI model?' "$CUR")"
 

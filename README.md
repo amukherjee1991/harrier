@@ -135,6 +135,7 @@ Security: see [SECURITY.md](SECURITY.md) for reporting and the pre-release audit
 ```bash
 ./deploy.sh                    # rebuild, run all tests against Postgres, restart only if they pass
 ./tests/selftest.sh            # live checks of the running system
+./tests/install_test.sh        # clone + ./setup.sh on a throwaway Docker-in-Docker machine, twice: with and without an existing Ollama
 bash tests/attack.sh your.domain   # from OUTSIDE your network: attack your own site and time the block
 ```
 
